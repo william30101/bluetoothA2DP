@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 /**
@@ -48,10 +49,12 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
      */
     private BluetoothAdapter mAdapter;
     //private ListView listView;
+    private ArrayList listBle;
     private ArrayAdapter listAdapter;
     private Set<BluetoothDevice> devicesArray;
     private BluetoothActivity bluetoothActivity;
     private String clickName;
+    private User userdata;
 
     @Override
     protected void onCreate (Bundle savedInstanceState) {
@@ -59,21 +62,35 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
         setContentView(R.layout.activity_main);
         bluetoothActivity = this;
 
+
+        
+       
+        
         ListView listView = (ListView) findViewById(R.id.listview1);
 
         
         //Store a local reference to the BluetoothAdapter
         mAdapter = BluetoothAdapter.getDefaultAdapter();
-        listAdapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,0);
+        //listAdapter=new ArrayAdapter<String[]>(this,android.R.layout.simple_list_item_1,0);
 
-        listView.setAdapter(getPairedDevices(mAdapter));
+        listBle = new ArrayList();
+        
+       // listView.setAdapter(getPairedDevices(mAdapter));
+        
+        /*
+         * Add new adapter for ble device scan
+         * */
+        
+        UsersAdapter adapterble = new UsersAdapter(this, getPairedDevicesBle(mAdapter));
+        
+        listView.setAdapter(adapterble);
         
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
             @Override
             public void onItemClick(AdapterView<?> parent, final View view,
                 int position, long id) {
-              final String item = (String) parent.getItemAtPosition(position);
+              final User item = (User) parent.getItemAtPosition(position);
               view.animate().setDuration(2000).alpha(0)
                   .withEndAction(new Runnable() {
                     @Override
@@ -81,8 +98,8 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
                       //listAdapter.remove(item);
                       //listAdapter.notifyDataSetChanged();
                       view.setAlpha(1);
-                      Toast.makeText(view.getContext(), "you click " + item, Toast.LENGTH_LONG).show();;
-                      clickName = item;
+                      Toast.makeText(view.getContext(), "you click " + item.name, Toast.LENGTH_LONG).show();;
+                      clickName = item.address;
                       //Already connected, skip the rest
                       if (mAdapter.isEnabled()) {
                           onBluetoothConnected();
@@ -106,15 +123,30 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
 
     }
 
-    private ArrayAdapter<String> getPairedDevices(BluetoothAdapter mBleAdapter) {
+    private ArrayAdapter<String[]> getPairedDevices(BluetoothAdapter mBleAdapter) {
         devicesArray=mBleAdapter.getBondedDevices();
         if(devicesArray.size()>0){
             for(BluetoothDevice device:devicesArray) {
-                listAdapter.add(device.getName());
+            	String[] additem ={ device.getName(), device.getAddress()};
+                listAdapter.add(additem);
             }
         }
         
         return listAdapter;
+
+    }
+    
+    private ArrayList<User> getPairedDevicesBle(BluetoothAdapter mBleAdapter) {
+        devicesArray=mBleAdapter.getBondedDevices();
+        if(devicesArray.size()>0){
+            for(BluetoothDevice device:devicesArray) {
+            	userdata = new User(device.getName(),device.getAddress());
+            	//String[] additem ={ device.getName(), device.getAddress()};
+            	listBle.add(userdata);
+            }
+        }
+        
+        return listBle;
 
     }
 
@@ -132,7 +164,7 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
     @Override
     public void onA2DPProxyReceived (BluetoothA2dp proxy) {
         Method connect = getConnectMethod();
-        BluetoothDevice device = findBondedDeviceByName(mAdapter, clickName);
+        BluetoothDevice device = findBondedDeviceByAddress(mAdapter, clickName);
 
         //If either is null, just return. The errors have already been logged
         if (connect == null || device == null) {
@@ -169,14 +201,14 @@ public class BluetoothActivity extends Activity implements BluetoothBroadcastRec
      * @param name the name of the device to search for
      * @return the BluetoothDevice by the given name (if found); null if it was not found
      */
-    private static BluetoothDevice findBondedDeviceByName (BluetoothAdapter adapter, String name) {
+    private static BluetoothDevice findBondedDeviceByAddress (BluetoothAdapter adapter, String address) {
         for (BluetoothDevice device : getBondedDevices(adapter)) {
-            if (name.matches(device.getName())) {
+            if (address.matches(device.getAddress())) {
                 Log.v(TAG, String.format("Found device with name %s and address %s.", device.getName(), device.getAddress()));
                 return device;
             }
         }
-        Log.w(TAG, String.format("Unable to find device with name %s.", name));
+        Log.w(TAG, String.format("Unable to find device with address %s.", address));
         return null;
     }
 
